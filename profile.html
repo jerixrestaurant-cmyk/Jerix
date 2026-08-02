@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Profil - Jerix Fusion Bites</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Updated SDKs to v10.12.0 -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+    <div class="top-header">
+        <div class="header-left">
+            <a href="index.html" class="auth-btn">Retour au Menu</a>
+        </div>
+        <div class="logo-container">
+            <img src="logo.jpg" alt="Jerix Fusion Bites Logo" class="logo">
+        </div>
+        <div class="top-nav" id="headerAuthContainer">
+            <!-- Dynamically populated -->
+        </div>
+    </div>
+
+    <div class="about-section" style="max-width: 600px; margin-top: 20px;">
+        <div class="about-container">
+            <h2 class="about-title" style="text-align: center;">Mon Profil</h2>
+            
+            <div style="display: flex; justify-content: center; margin-bottom: 25px;">
+                <div id="profileAvatar" style="width: 80px; height: 80px; border-radius: 50%; background-color: #ffd700; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 2em; text-transform: uppercase;">V</div>
+            </div>
+
+            <form id="profileForm" style="display: flex; flex-direction: column; gap: 20px;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="color: #fff; font-weight: bold; font-size: 0.95rem;">Nom :</label>
+                    <input type="text" id="profileName" style="background-color: #1a1a1a; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; font-size: 1rem;" placeholder="Entrez votre nom">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="color: #fff; font-weight: bold; font-size: 0.95rem;">Numéro de téléphone :</label>
+                    <input type="tel" id="profilePhone" style="background-color: #1a1a1a; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; font-size: 1rem;" placeholder="Entrez votre numéro de téléphone">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="color: #fff; font-weight: bold; font-size: 0.95rem;">E-mail :</label>
+                    <input type="email" id="profileEmail" style="background-color: #1a1a1a; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; font-size: 1rem;" placeholder="Entrez votre e-mail">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="color: #fff; font-weight: bold; font-size: 0.95rem;">Adresse / Localisation :</label>
+                    <input type="text" id="profileAddress" style="background-color: #1a1a1a; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; font-size: 1rem;" placeholder="Entrez votre ville / adresse">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="color: #fff; font-weight: bold; font-size: 0.95rem;">Rôle :</label>
+                    <input type="text" id="profileRole" disabled style="background-color: #111; border: 1px solid #222; color: #ffd700; padding: 12px; border-radius: 8px; font-size: 1rem; text-transform: uppercase; cursor: not-allowed;">
+                </div>
+
+                <p style="color: #888; font-size: 0.85em; font-style: italic; text-align: center; margin-top: 5px;">
+                    Au fait, ce sont les détails et l'emplacement que nous utiliserons lors de la livraison et pour vous contacter.
+                </p>
+
+                <div style="display: flex; gap: 15px; margin-top: 10px;">
+                    <a href="index.html" class="auth-btn" style="flex: 1; text-align: center; background-color: #222; color: #fff; border: 1px solid #444; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold;">Retour</a>
+                    <button type="submit" id="saveBtn" style="flex: 1; background-color: #ffd700; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: background 0.2s;">Enregistrer</button>
+                </div>
+                
+                <div id="statusMessage" style="text-align: center; font-size: 0.9em; margin-top: 10px;"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyAFGnXNg51y82dtNVIR5Yd_JWYK1Aty5Yw",
+        authDomain: "jerixrestaurant-12a9b.firebaseapp.com",
+        projectId: "jerixrestaurant-12a9b",
+        storageBucket: "jerixrestaurant-12a9b.firebasestorage.app",
+        messagingSenderId: "347378956164",
+        appId: "1:347378956164:web:af66d148cd20b417124fd1",
+        measurementId: "G-CE02CK78XQ"
+    };
+
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    // Set local persistence
+    auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+    document.addEventListener("DOMContentLoaded", function() {
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                document.getElementById('profileEmail').value = user.email || '';
+                
+                // Fetch user document from Firestore directly
+                db.collection("users").doc(user.uid).get().then((docSnapshot) => {
+                    if (docSnapshot.exists) {
+                        const data = docSnapshot.data();
+                        document.getElementById('profileName').value = data.name || user.displayName || '';
+                        document.getElementById('profilePhone').value = data.phone || '';
+                        document.getElementById('profileAddress').value = data.address || '';
+                        document.getElementById('profileRole').value = data.role || 'customer';
+                        if (data.email) document.getElementById('profileEmail').value = data.email;
+                        updateAvatar(data.name || user.email);
+                    } else {
+                        document.getElementById('profileName').value = user.displayName || '';
+                        document.getElementById('profileRole').value = 'customer';
+                        updateAvatar(user.email);
+                    }
+                }).catch((error) => {
+                    console.error("Error fetching profile data:", error);
+                });
+            } else {
+                window.location.href = "auth.html";
+            }
+        });
+
+        // Handle profile updates
+        const profileForm = document.getElementById('profileForm');
+        profileForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const saveBtn = document.getElementById('saveBtn');
+            const statusMsg = document.getElementById('statusMessage');
+            saveBtn.disabled = true;
+            saveBtn.textContent = "Enregistrement...";
+            statusMsg.textContent = "";
+
+            const newEmail = document.getElementById('profileEmail').value.trim();
+            const updatedData = {
+                name: document.getElementById('profileName').value.trim(),
+                phone: document.getElementById('profilePhone').value.trim(),
+                address: document.getElementById('profileAddress').value.trim(),
+                email: newEmail,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                if (newEmail && newEmail !== user.email) {
+                    await user.updateEmail(newEmail);
+                }
+
+                await db.collection("users").doc(user.uid).set(updatedData, { merge: true });
+
+                statusMsg.style.color = "#4BB543";
+                statusMsg.textContent = "Profil mis à jour avec succès !";
+                updateAvatar(updatedData.name || newEmail);
+                setTimeout(() => { statusMsg.textContent = ""; }, 3000);
+
+            } catch (error) {
+                console.error("Error updating profile:", error);
+                statusMsg.style.color = "#ff4d4d";
+
+                if (error.code === 'auth/requires-recent-login') {
+                    statusMsg.textContent = "Pour modifier votre e-mail, veuillez vous déconnecter et vous reconnecter pour des raisons de sécurité.";
+                } else {
+                    statusMsg.textContent = "Erreur lors de la mise à jour : " + error.message;
+                }
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = "Enregistrer";
+            }
+        });
+    });
+
+    function updateAvatar(identifier) {
+        if (!identifier) return;
+        let initials = identifier.charAt(0).toUpperCase();
+        const parts = identifier.trim().split(' ');
+        if (parts.length > 1) {
+            initials = (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+        }
+        document.getElementById('profileAvatar').textContent = initials;
+    }
+    </script>
+</body>
+</html>

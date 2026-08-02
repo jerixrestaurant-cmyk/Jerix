@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <script src="https://js.stripe.com/v3/"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commander - Jerix Fusion Bites</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Header avec Logo Centré et Boutons de Navigation -->
+    <header class="top-header">
+        <nav class="top-nav">
+            <a href="index.html#aboutSection" class="nav-link">About</a>
+            <a href="index.html#menuSection" class="nav-link">Menu</a>
+            <a href="reviews.html" class="nav-link">Reviews</a>
+            <a href="checkout.html" class="nav-link active">Checkout</a>
+        </nav>
+
+        <div class="logo-container">
+            <a href="index.html">
+                <img src="logo.jpg" alt="Logo Jerix Fusion Bites" class="logo">
+            </a>
+        </div>
+    </header>
+
+    <!-- Page Content / Full Cart Summary -->
+    <section class="about-section" style="margin-top: 40px;">
+        <div class="about-container">
+            <h2 class="about-title">Mon Panier / Checkout</h2>
+            
+            <div class="about-content">
+                <!-- Dynamic Cart Items Container -->
+                <div id="fullCartList" style="margin-bottom: 20px;">
+                    <!-- Items populated dynamically via script -->
+                </div>
+
+                <!-- Total Amount Section -->
+                <div id="fullCartTotalContainer" style="border-top: 2px solid #ffcc00; padding-top: 15px; margin-top: 15px; display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: bold; color: #ffcc00;">
+                    <span>Total :</span>
+                    <span id="fullCartTotal">0.00 €</span>
+                </div>
+
+                <div style="margin-top: 25px; text-align: center;">
+                    <button onclick="window.location.href='payment.html'" style="background-color: #ffcc00; color: #000; border: none; padding: 12px 25px; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-size: 1rem;">Confirmer la commande</button>
+                </div>
+
+                <br>
+                <p style="font-size: 0.9rem; color: #888; text-align: center;">💡 <em>Rappel : Livraison gratuite à partir de 20€ d'achat.</em></p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Customization Modal -->
+    <div id="customizeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; justify-content: center; align-items: center;">
+        <div style="background: #222; border: 1px solid #444; border-radius: 8px; padding: 20px; width: 90%; max-width: 400px; color: #fff;">
+            <h3 id="customizeItemTitle" style="color: #ffcc00; margin-top: 0;">Personnaliser l'article</h3>
+            <label style="font-size: 0.85rem; color: #ccc; display: block; margin-bottom: 8px;">Instructions particulières / Ingrédients à retirer :</label>
+            <textarea id="customNotesInput" rows="4" style="width: 100%; background: #111; color: #fff; border: 1px solid #555; border-radius: 4px; padding: 8px; box-sizing: border-box;" placeholder="Ex: Sans oignons, sauce piquante à part..."></textarea>
+            <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                <button onclick="closeCustomizeModal()" style="background: #444; color: #fff; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">Annuler</button>
+                <button onclick="saveCustomization()" style="background: #ffcc00; color: #000; font-weight: bold; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sync Cart Script -->
+    <!-- Sync Cart Script -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // Load cart data from localStorage so 'cart' actually exists!
+            let cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
+            
+            const fullCartList = document.getElementById("fullCartList");
+            const fullCartTotal = document.getElementById("fullCartTotal");
+            let activeEditIndex = null;
+
+            function renderFullCart() {
+                if (!cart || cart.length === 0) {
+                    fullCartList.innerHTML = `<p style="color: #888; text-align: center;">Votre panier est vide. Visitez la section <a href="index.html#menuSection" style="color: #ffcc00; text-decoration: underline;">Menu</a> pour ajouter des plats !</p>`;
+                    if (fullCartTotal) fullCartTotal.textContent = "0.00 €";
+                    return;
+                }
+
+                fullCartList.innerHTML = "";
+                let totalPrice = 0;
+
+                cart.forEach((item, index) => {
+                    // Lock down basePrice strictly once so double calculations don't compound
+                    if (item.basePrice === undefined) {
+                        item.basePrice = parseFloat(item.price) || 0;
+                    }
+                    if (!item.type) item.type = 'single';
+
+                    // Calculate unit price dynamically based on option
+                    const itemUnitPrice = item.type === 'meal' ? (item.basePrice + 2.00) : item.basePrice;
+                    
+                    // Final calculated item price saved back to cart object
+                    item.price = itemUnitPrice; 
+                    const itemTotal = itemUnitPrice * (item.quantity || 1);
+                    totalPrice += itemTotal;
+
+                    const row = document.createElement("div");
+                    row.style.cssText = "display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 12px; gap: 10px;";
+                    
+                    row.innerHTML = `
+                        <div style="flex: 1; min-width: 180px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="color: #fff; font-weight: bold;">${item.quantity || 1}x ${item.name}</span>
+                                <button onclick="openCustomizeModal(${index})" title="Personnaliser" style="background: none; border: 1px solid #555; color: #ffcc00; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 0.8rem; display: flex; align-items: center;">✏️</button>
+                            </div>
+                            <div style="font-size: 0.8rem; color: #888; margin-top: 2px;">${itemUnitPrice.toFixed(2)} € l'unité</div>
+                            ${item.customNotes ? `<div style="font-size: 0.78rem; color: #ffcc00; font-style: italic; margin-top: 4px;">Note: ${item.customNotes}</div>` : ''}
+                        </div>
+
+                        <!-- Option Toggle: Single / Meal -->
+                        <div style="display: flex; background: #111; border: 1px solid #444; border-radius: 6px; overflow: hidden;">
+                            <button onclick="setOptionType(${index}, 'single')" style="padding: 6px 12px; border: none; font-size: 0.8rem; font-weight: bold; cursor: pointer; background: ${item.type === 'single' ? '#ffcc00' : 'transparent'}; color: ${item.type === 'single' ? '#000' : '#aaa'}; transition: 0.2s;">
+                                Seul
+                            </button>
+                            <button onclick="setOptionType(${index}, 'meal')" style="padding: 6px 12px; border: none; font-size: 0.8rem; font-weight: bold; cursor: pointer; background: ${item.type === 'meal' ? '#ffcc00' : 'transparent'}; color: ${item.type === 'meal' ? '#000' : '#aaa'}; transition: 0.2s;">
+                                Menu (+2€)
+                            </button>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="color: #ffcc00; font-weight: bold; min-width: 60px; text-align: right;">${itemTotal.toFixed(2)} €</span>
+                            <button onclick="removeItem(${index})" style="background: #ff4444; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;">✕</button>
+                        </div>
+                    `;
+                    fullCartList.appendChild(row);
+                });
+
+                if (fullCartTotal) fullCartTotal.textContent = totalPrice.toFixed(2) + " €";
+                localStorage.setItem("jerix_cart", JSON.stringify(cart));
+            }
+
+            window.setOptionType = function(index, type) {
+                cart[index].type = type;
+                renderFullCart(); // Immediate total update on UI and localStorage
+            };
+
+            window.removeItem = function(index) {
+                cart.splice(index, 1);
+                renderFullCart();
+            };
+
+            window.openCustomizeModal = function(index) {
+                activeEditIndex = index;
+                const item = cart[index];
+                document.getElementById("customizeItemTitle").textContent = "Personnaliser: " + item.name;
+                document.getElementById("customNotesInput").value = item.customNotes || "";
+                document.getElementById("customizeModal").style.display = "flex";
+            };
+
+            window.closeCustomizeModal = function() {
+                document.getElementById("customizeModal").style.display = "none";
+                activeEditIndex = null;
+            };
+
+            window.saveCustomization = function() {
+                if (activeEditIndex !== null) {
+                    const notes = document.getElementById("customNotesInput").value.trim();
+                    cart[activeEditIndex].customNotes = notes;
+                    renderFullCart();
+                }
+                closeCustomizeModal();
+            };
+
+            renderFullCart();
+        });
+    </script>
+</body>
+</html>

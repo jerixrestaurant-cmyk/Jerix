@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jerix Fusion Bites</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Firebase App (Core) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <!-- Firebase Authentication -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <!-- Firebase Firestore (Database) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!-- Header avec Bouton Auth à gauche, Logo au centre, et Nav -->
+<header class="top-header">
+    <div class="header-left" id="headerAuthContainer">
+        <a href="auth.html" class="auth-btn">Connexion / Inscription</a>
+    </div>
+
+    <div class="logo-container">
+        <img src="logo.jpg" alt="Logo Jerix Fusion Bites" class="logo">
+    </div>
+
+    <nav class="top-nav">
+        <a href="index.html#aboutSection" class="nav-link">About</a>
+        <a href="index.html#menuSection" class="nav-link">Menu</a>
+        <a href="reviews.html" class="nav-link">Reviews</a>
+        <a href="checkout.html" class="nav-link">Checkout</a>
+    </nav>
+</header>
+
+<!-- Top Ticker -->
+<div class="ticker-wrap">
+    <div class="ticker">
+        <div class="ticker-track">
+            <span class="ticker-item">Jerix Fusion Bites <span class="ticker-block"></span></span>
+            <span class="ticker-item">Pizza <span class="ticker-block"></span></span>
+            <span class="ticker-item">Tacos <span class="ticker-block"></span></span>
+            <span class="ticker-item">Burgers <span class="ticker-block"></span></span>
+            <span class="ticker-item">Sandwichs <span class="ticker-block"></span></span>
+            <span class="ticker-item">Indien <span class="ticker-block"></span></span>
+            <span class="ticker-item">Jerix Fusion Bites <span class="ticker-block"></span></span>
+            <span class="ticker-item">Pizza <span class="ticker-block"></span></span>
+            <span class="ticker-item">Tacos <span class="ticker-block"></span></span>
+            <span class="ticker-item">Burgers <span class="ticker-block"></span></span>
+            <span class="ticker-item">Sandwichs <span class="ticker-block"></span></span>
+            <span class="ticker-item">Indien <span class="ticker-block"></span></span>
+        </div>
+    </div>
+</div>
+
+<!-- Section Galerie d'images -->
+<section class="gallery-section">
+    <button class="gallery-btn prev-btn" id="prevBtn">&#10094;</button>
+    
+    <div class="gallery-container" id="galleryContainer">
+        <div class="gallery-item"><img src="Pizza.jpg" alt="Pizza"></div>
+        <div class="gallery-item"><img src="Burger.jpg" alt="Burger"></div>
+        <div class="gallery-item"><img src="Taco.jpg" alt="Tacos"></div>
+        <div class="gallery-item"><img src="Sandwitch.jpg" alt="Sandwich"></div>
+        <div class="gallery-item"><img src="Indien.jpg" alt="Cuisine Indienne"></div>
+        <div class="gallery-item"><img src="Salad.jpg" alt="Salade"></div>
+    </div>
+
+    <button class="gallery-btn next-btn" id="nextBtn">&#10095;</button>
+</section>
+
+<!-- Section Menu Principal -->
+<section class="main-restaurant-section" id="menuSection">
+    <div class="menu-sidebar" id="menuSidebar">
+        <h2 class="menu-title">Menu Jerix</h2>
+    </div>
+
+    <div class="product-display-area" id="productDisplay"></div>
+</section>
+
+<!-- Section À propos -->
+<section class="about-section" id="aboutSection">
+    <div class="about-container">
+        <div class="about-header-badges">
+            <img src="halal-logo.png" alt="Halal" class="halal-badge" onerror="this.style.display='none'">
+        </div>
+        
+        <h2 class="about-title">À propos de Jerix Fusion Bites</h2>
+        <div class="about-content">
+            <p>
+                Bienvenue chez <strong>Jerix Fusion Bites</strong>, l'endroit où la passion rencontre les saveurs de rue !
+            </p>
+
+            <div class="brochure-info-box">
+                <div class="info-row">
+                    <strong>📍 Adresse :</strong> 
+                    <a href="https://maps.google.com/?q=11+PLACE+DES+BRUGNAUTS+92220+BAGNEUX" target="_blank" class="map-link">
+                        11 Place des Brugnauts, 92220 Bagneux
+                    </a>
+                </div>
+                <div class="info-row">
+                    <strong>📞 Téléphone :</strong> 
+                    <a href="tel:0145461482" style="color: #ffd700; font-size: 1.2em; font-weight: bold; text-decoration: none;">01 45 46 14 82</a> 
+                    / 
+                    <a href="tel:0788390264" style="color: #ffd700; font-size: 1.2em; font-weight: bold; text-decoration: none;">07 88 39 02 64</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Floating Checkout Trigger Box -->
+<div id="floatingCheckoutBox" class="floating-checkout-box">
+    <div class="checkout-box-header" id="checkoutBoxToggle">
+        <div class="checkout-header-left">
+            <span class="checkout-title">CHECKOUT</span>
+            <span id="cartCount" class="cart-count">0</span>
+        </div>
+        <div class="checkout-header-right">
+            <span id="cartTotal" class="cart-total">0.00 €</span>
+        </div>
+    </div>
+    <div class="checkout-box-content" id="checkoutBoxContent" style="display: none;">
+        <div id="cartItemsList" class="cart-items-list">
+            <p class="empty-cart-text">Votre panier est vide.</p>
+        </div>
+        <div class="checkout-actions">
+            <a href="checkout.html" class="go-to-checkout-btn">VOIR LE PANIER COMPLET</a>
+        </div>
+    </div>
+</div>
+
+<!-- Firebase & Application Script -->
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyAFGnXNg51y82dtNVIR5Yd_JWYK1Aty5Yw",
+    authDomain: "jerixrestaurant-12a9b.firebaseapp.com",
+    projectId: "jerixrestaurant-12a9b",
+    storageBucket: "jerixrestaurant-12a9b.firebasestorage.app",
+    messagingSenderId: "347378956164",
+    appId: "1:347378956164:web:af66d148cd20b417124fd1",
+    measurementId: "G-CE02CK78XQ"
+};
+
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ----------------------------------------------------
+// 🔐 FIXED HEADER UI & DROPDOWN LOGIC
+// ----------------------------------------------------
+auth.onAuthStateChanged((user) => {
+    // Locate target container
+    let authContainer = document.getElementById('headerAuthContainer') || 
+                        document.querySelector('.auth-btn') || 
+                        document.querySelector('a[href="auth.html"]');
+
+    if (!authContainer) return;
+
+    if (user) {
+        db.collection("users").doc(user.uid).get().then((doc) => {
+            let displayName = user.email ? user.email.split('@')[0] : "Utilisateur";
+            let roleDisplay = "Customer";
+            let initials = displayName.charAt(0).toUpperCase();
+            let isAdmin = false;
+
+            if (doc.exists) {
+                const userData = doc.data();
+                if (userData.name) {
+                    displayName = userData.name;
+                    const parts = userData.name.trim().split(' ');
+                    initials = parts[0].charAt(0);
+                    if (parts.length > 1) initials += parts[parts.length - 1].charAt(0);
+                    initials = initials.toUpperCase();
+                }
+
+                if (userData.role === 'admin') {
+                    isAdmin = true;
+                    roleDisplay = "Administrateur";
+                }
+            }
+
+            renderHeaderProfile(authContainer, initials, displayName, roleDisplay, isAdmin);
+        }).catch((error) => {
+            console.error("Error fetching user profile:", error);
+            const displayName = user.email ? user.email.split('@')[0] : "Utilisateur";
+            renderHeaderProfile(authContainer, displayName.charAt(0).toUpperCase(), displayName, "Customer", false);
+        });
+    } else {
+        authContainer.outerHTML = `<a href="auth.html" id="headerAuthContainer" class="auth-btn">Connexion / Inscription</a>`;
+    }
+});
+
+function renderHeaderProfile(container, initials, name, role, isAdmin) {
+    const profileHTML = `
+        <div id="headerAuthContainer" class="user-profile-wrapper" style="position: relative; display: inline-block;">
+            <!-- Profile Trigger Header -->
+            <div id="profileToggle" style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 12px; border-radius: 8px; background: rgba(255,255,255,0.08); user-select: none;">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background-color: #ffd700; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9em; box-shadow: 0 0 5px rgba(255,215,0,0.5);">
+                    ${initials}
+                </div>
+                <div style="display: flex; flex-direction: column; text-align: left;">
+                    <span style="color: #fff; font-weight: bold; font-size: 0.85em; line-height: 1.1;">${name}</span>
+                    <span style="color: #ffd700; font-size: 0.7em; font-weight: 600;">${role}</span>
+                </div>
+                <span style="color: #aaa; font-size: 0.7em; margin-left: 4px;">▼</span>
+            </div>
+
+            <!-- Floating Dropdown Menu -->
+            <div id="profileDropdown" style="display: none; position: absolute; top: calc(100% + 8px); left: 0; background: #181818; border: 1px solid #333; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.8); z-index: 99999; min-width: 180px; overflow: hidden;">
+                ${isAdmin ? `
+                    <a href="manage.html" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: #ffd700; text-decoration: none; font-size: 0.85em; border-bottom: 1px solid #282828; font-weight: bold; background: rgba(255, 215, 0, 0.05);">
+                        <span>⚙️</span> Gérer le Menu
+                    </a>
+                ` : ''}
+
+                <a href="profile.html" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: #fff; text-decoration: none; font-size: 0.85em; border-bottom: 1px solid #282828;">
+                    <span>👤</span> Mon Profil
+                </a>
+                <a href="orders.html" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: #fff; text-decoration: none; font-size: 0.85em; border-bottom: 1px solid #282828;">
+                    <span>📦</span> Mes Commandes
+                </a>
+                <button onclick="logoutUser()" style="width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: none; border: none; color: #ff4444; text-align: left; cursor: pointer; font-size: 0.85em;">
+                    <span>🚪</span> Se déconnecter
+                </button>
+            </div>
+        </div>
+    `;
+
+    container.outerHTML = profileHTML;
+
+    // Attach Toggle Listener
+    setTimeout(() => {
+        const toggle = document.getElementById('profileToggle');
+        const dropdown = document.getElementById('profileDropdown');
+
+        if (toggle && dropdown) {
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isVisible = dropdown.style.display === 'block';
+                dropdown.style.display = isVisible ? 'none' : 'block';
+            });
+
+            window.addEventListener('click', () => {
+                dropdown.style.display = 'none';
+            });
+        }
+    }, 50);
+}
+
+window.logoutUser = function() {
+    auth.signOut().then(() => {
+        window.location.reload();
+    });
+};
+
+// Global Cache State
+let allProductsCache = [];
+let allCategoriesCache = [];
+let currentCategoryFilter = '';
+
+document.addEventListener("DOMContentLoaded", function() {
+    console.log("DOM loaded successfully.");
+
+    // Toggle Floating Checkout Drawer
+    const checkoutToggle = document.getElementById('checkoutBoxToggle');
+    const checkoutContent = document.getElementById('checkoutBoxContent');
+    if (checkoutToggle && checkoutContent) {
+        checkoutToggle.addEventListener('click', () => {
+            checkoutContent.style.display = checkoutContent.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+
+    loadLiveCategoriesAndMenu();
+    updateCartUI();
+});
+
+function loadLiveCategoriesAndMenu() {
+    db.collection("categories").onSnapshot((snapshot) => {
+        allCategoriesCache = [];
+        snapshot.forEach((doc) => {
+            allCategoriesCache.push({ id: doc.id, ...doc.data() });
+        });
+        renderSidebarCategories();
+
+        if (allCategoriesCache.length > 0) {
+            if (!currentCategoryFilter || !allCategoriesCache.some(c => c.name === currentCategoryFilter)) {
+                currentCategoryFilter = allCategoriesCache[0].name;
+            }
+        } else {
+            currentCategoryFilter = '';
+        }
+        renderProductDisplay();
+    });
+
+    db.collection("menu").onSnapshot((snapshot) => {
+        allProductsCache = [];
+        snapshot.forEach((doc) => {
+            allProductsCache.push({ id: doc.id, ...doc.data() });
+        });
+        renderProductDisplay();
+    });
+}
+
+function renderSidebarCategories() {
+    const menuSidebar = document.getElementById('menuSidebar');
+    if (!menuSidebar) return;
+
+    menuSidebar.innerHTML = `<h2 class="menu-title">Menu Jerix</h2>`;
+
+    if (allCategoriesCache.length === 0) {
+        menuSidebar.innerHTML += `<p style="color: #888; padding: 10px;">Aucune catégorie disponible.</p>`;
+        return;
+    }
+
+    const categoryGroupDiv = document.createElement('div');
+    categoryGroupDiv.className = 'menu-category';
+    
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'menu-buttons';
+
+    allCategoriesCache.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = `menu-btn ${currentCategoryFilter === cat.name ? 'active' : ''}`;
+        btn.textContent = cat.name;
+        btn.onclick = () => {
+            currentCategoryFilter = cat.name;
+            renderSidebarCategories();
+            renderProductDisplay();
+        };
+        buttonsContainer.appendChild(btn);
+    });
+
+    categoryGroupDiv.appendChild(buttonsContainer);
+    menuSidebar.appendChild(categoryGroupDiv);
+}
+
+function renderProductDisplay() {
+    const productDisplay = document.getElementById('productDisplay');
+    if (!productDisplay) return;
+
+    productDisplay.innerHTML = "";
+
+    if (!currentCategoryFilter) {
+        productDisplay.innerHTML = `<p style="color: #888; text-align: center; width: 100%; grid-column: 1 / -1;">Veuillez sélectionner une catégorie.</p>`;
+        return;
+    }
+
+    const filtered = allProductsCache.filter(p => 
+        p.category && p.category.trim().toLowerCase() === currentCategoryFilter.trim().toLowerCase()
+    );
+
+    if (filtered.length === 0) {
+        productDisplay.innerHTML = `<p style="color: #888; text-align: center; width: 100%; grid-column: 1 / -1;">Aucun produit disponible dans cette catégorie pour le moment.</p>`;
+        return;
+    }
+
+    filtered.forEach(product => {
+        const priceNum = parseFloat(product.price) || 0;
+        const safeName = product.name.replace(/'/g, "\\'");
+
+        const card = document.createElement('div');
+        card.className = 'product-card menu-item-card'; 
+        card.style.maxWidth = '300px';
+
+        card.innerHTML = `
+            <img src="${product.image || 'https://via.placeholder.com/200x150'}" 
+                 alt="${product.name}" 
+                 style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;"
+                 onerror="this.src='https://via.placeholder.com/200x150'">
+            
+            <div class="product-info menu-item-details" style="padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <div class="product-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="product-name" style="font-weight: bold; text-transform: uppercase; color: #fff;">${product.name}</span>
+                    <span class="product-price price" style="color: #ffd700; font-weight: bold;">${priceNum.toFixed(2)} €</span>
+                </div>
+                ${product.desc ? `<p class="product-desc" style="color: #aaa; font-size: 0.85em; margin: 0;">${product.desc}</p>` : ''}
+                
+                <button onclick="window.addToCart('${safeName}', ${priceNum})" class="add-to-cart-btn btn-add" style="
+                    margin-top: 10px;
+                    width: 100%;
+                    padding: 10px;
+                    background-color: #ffd700;
+                    color: #000;
+                    border: none;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    font-size: 0.85em;
+                    cursor: pointer;
+                    text-transform: uppercase;">
+                    AJOUTER AU PANIER
+                </button>
+            </div>
+        `;
+
+        productDisplay.appendChild(card);
+    });
+}
+
+// Global Cart Initialization
+window.cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
+
+// 🎯 REAL ADD TO CART LOGIC
+window.addToCart = function(productName, productPrice) {
+    console.log(`Adding to cart: ${productName} (${productPrice}€)`);
+
+    const priceNum = parseFloat(productPrice) || 0;
+    const existingIndex = window.cart.findIndex(item => item.name === productName);
+
+    if (existingIndex > -1) {
+        window.cart[existingIndex].quantity = (window.cart[existingIndex].quantity || 1) + 1;
+    } else {
+        window.cart.push({
+            name: productName,
+            price: priceNum,
+            basePrice: priceNum,
+            quantity: 1,
+            type: 'single'
+        });
+    }
+
+    saveCart();
+};
+
+function saveCart() {
+    localStorage.setItem("jerix_cart", JSON.stringify(window.cart));
+    updateCartUI();
+}
+
+function updateCartUI() {
+    const cartCountEl = document.getElementById("cartCount");
+    const cartTotalEl = document.getElementById("cartTotal");
+    const cartItemsList = document.getElementById("cartItemsList");
+
+    let totalQuantity = 0;
+    let totalPrice = 0;
+
+    if (!cartItemsList) return;
+
+    if (window.cart.length === 0) {
+        cartItemsList.innerHTML = `<p class="empty-cart-text">Votre panier est vide.</p>`;
+    } else {
+        cartItemsList.innerHTML = "";
+        window.cart.forEach((item, index) => {
+            const qty = item.quantity || 1;
+            const itemTotal = (item.price || item.basePrice || 0) * qty;
+            
+            totalQuantity += qty;
+            totalPrice += itemTotal;
+
+            const itemRow = document.createElement("div");
+            itemRow.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.9rem; color: #fff;";
+            itemRow.innerHTML = `
+                <span>${qty}x ${item.name}</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #ffd700;">${itemTotal.toFixed(2)} €</span>
+                    <button onclick="removeCartItem(${index})" style="background: none; border: none; color: #ff4444; cursor: pointer; font-weight: bold; font-size: 1rem;">✕</button>
+                </div>
+            `;
+            cartItemsList.appendChild(itemRow);
+        });
+    }
+
+    if (cartCountEl) cartCountEl.textContent = totalQuantity;
+    if (cartTotalEl) cartTotalEl.textContent = totalPrice.toFixed(2) + " €";
+}
+
+window.removeCartItem = function(index) {
+    if (window.cart[index]) {
+        window.cart.splice(index, 1);
+        saveCart();
+    }
+};
+</script>
+
+
+</body>
+</html>

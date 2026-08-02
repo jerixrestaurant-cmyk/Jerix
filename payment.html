@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paiement - Jerix Fusion Bites</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase SDKs v10.12.0 -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="top-header">
+        <nav class="top-nav">
+            <a href="index.html#aboutSection" class="nav-link">About</a>
+            <a href="index.html#menuSection" class="nav-link">Menu</a>
+            <a href="reviews.html" class="nav-link">Reviews</a>
+            <a href="checkout.html" class="nav-link">Checkout</a>
+        </nav>
+
+        <div class="logo-container">
+            <a href="index.html">
+                <img src="logo.jpg" alt="Logo Jerix Fusion Bites" class="logo">
+            </a>
+        </div>
+    </header>
+
+    <!-- Payment Section -->
+    <section class="about-section" style="margin-top: 40px;">
+        <div class="about-container" style="max-width: 550px; margin: 0 auto; text-align: center;">
+            
+            <h1 style="color: #ffcc00; font-size: 2.2rem; margin-bottom: 5px; text-transform: uppercase;">Paiement</h1>
+            <p style="color: #aaa; font-size: 1.1rem; margin-bottom: 25px;">
+                Total à régler : <span id="paymentTotalDisplay" style="color: #ffcc00; font-weight: bold; font-size: 1.5rem;">0.00 €</span>
+            </p>
+
+            <div class="about-content" style="background: #181818; padding: 25px; border-radius: 10px; border: 1px solid #333;">
+                
+                <!-- USER PROFILE DISPLAY AT THE TOP -->
+                <div id="userProfileHeader" style="display: flex; align-items: center; justify-content: space-between; background: #222; padding: 12px 16px; border-radius: 8px; border: 1px solid #ffcc00; margin-bottom: 20px; text-align: left;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 1.5rem;">👤</span>
+                        <div>
+                            <div id="profileHeaderName" style="color: #fff; font-weight: bold; font-size: 0.95rem;">Vérification du compte...</div>
+                            <div id="profileHeaderEmail" style="color: #aaa; font-size: 0.8rem;">Veuillez patienter...</div>
+                        </div>
+                    </div>
+                    <span id="profileStatusBadge" style="background: #333; color: #ffcc00; font-size: 0.75rem; padding: 4px 8px; border-radius: 12px; font-weight: bold;">Chargement</span>
+                </div>
+
+                <!-- Order Summary Breakdown -->
+                <div style="text-align: left; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #333;">
+                    <h3 style="color: #fff; margin-bottom: 15px; font-size: 1.2rem;">Récapitulatif de la commande</h3>
+                    <div id="orderItemsContainer" style="display: flex; flex-direction: column; gap: 10px; max-height: 200px; overflow-y: auto;">
+                        <!-- Cart items dynamically inserted here -->
+                    </div>
+                </div>
+
+                <h3 style="color: #fff; margin-bottom: 20px; font-size: 1.2rem; text-align: left;">Mode de paiement</h3>
+
+                <!-- Options Grid -->
+                <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;">
+                    <label id="optionCashLabel" onclick="selectPaymentMethod('cash')" style="display: flex; align-items: center; justify-content: space-between; padding: 15px 20px; background: #222; border: 2px solid #ffcc00; border-radius: 8px; cursor: pointer;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <input type="radio" name="paymentMethod" id="payCash" value="cash" checked style="accent-color: #ffcc00; transform: scale(1.2);">
+                            <span style="color: #fff; font-weight: bold; font-size: 1rem;">💵 Espèces à la livraison (Cash)</span>
+                        </div>
+                    </label>
+
+                    <label id="optionCardLabel" onclick="selectPaymentMethod('card')" style="display: flex; align-items: center; justify-content: space-between; padding: 15px 20px; background: #222; border: 2px solid #444; border-radius: 8px; cursor: pointer;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <input type="radio" name="paymentMethod" id="payCard" value="card" style="accent-color: #ffcc00; transform: scale(1.2);">
+                            <span style="color: #fff; font-weight: bold; font-size: 1rem;">💳 Carte en ligne (Trial Mode)</span>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Card Details Form -->
+                <div id="cardDetailsContainer" style="display: none; background: #111; padding: 15px; border-radius: 8px; border: 1px solid #444; margin-bottom: 25px; text-align: left;">
+                    <h4 style="color: #ffcc00; margin-bottom: 12px; font-size: 1rem;">Détails de la Carte (Test Run)</h4>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div>
+                            <label style="color: #ccc; font-size: 0.8rem;">Numéro de carte :</label>
+                            <input type="text" id="cardNumber" placeholder="4242 4242 4242 4242" maxlength="19" style="width: 100%; padding: 10px; background: #181818; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 0.9rem; margin-top: 4px;">
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px;">
+                            <div style="flex: 1;">
+                                <label style="color: #ccc; font-size: 0.8rem;">Expiration (MM/AA) :</label>
+                                <input type="text" id="cardExpiry" placeholder="12/28" maxlength="5" style="width: 100%; padding: 10px; background: #181818; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 0.9rem; margin-top: 4px;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="color: #ccc; font-size: 0.8rem;">CVC / CVV :</label>
+                                <input type="password" id="cardCvc" placeholder="123" maxlength="4" style="width: 100%; padding: 10px; background: #181818; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 0.9rem; margin-top: 4px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Details Form -->
+                <h3 style="color: #fff; margin-bottom: 15px; font-size: 1.2rem; text-align: left;">Informations de livraison</h3>
+                <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px; text-align: left;">
+                    <label style="color: #ccc; font-size: 0.85rem;">Nom complet :</label>
+                    <input type="text" id="customerName" placeholder="Entrez votre nom" style="padding: 10px; background: #111; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 0.95rem;">
+
+                    <label style="color: #ccc; font-size: 0.85rem;">Adresse e-mail :</label>
+                    <input type="email" id="customerEmail" placeholder="Entrez votre email" style="padding: 10px; background: #111; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 0.95rem;">
+
+                    <label style="color: #ccc; font-size: 0.85rem;">Adresse de livraison :</label>
+                    <input type="text" id="deliveryAddress" placeholder="Entrez votre adresse" style="padding: 10px; background: #111; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 0.95rem;">
+                    
+                    <label style="color: #ccc; font-size: 0.85rem;">Numéro de téléphone :</label>
+                    <input type="tel" id="deliveryPhone" placeholder="Entrez votre téléphone" style="padding: 10px; background: #111; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 0.95rem;">
+                </div>
+
+                <!-- Action Button -->
+                <button id="submitOrderBtn" onclick="processOrder()" style="width: 100%; background-color: #ffcc00; color: #000; border: none; padding: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-size: 1.05rem;">
+                    Valider la commande (Espèces)
+                </button>
+
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // --- FIREBASE CONFIGURATION & INITIALIZATION ---
+const firebaseConfig = {
+    apiKey: "AIzaSyAFGnXNg51y82dtNVIR5Yd_JWYK1Aty5Yw",
+    authDomain: "jerixrestaurant-12a9b.firebaseapp.com",
+    projectId: "jerixrestaurant-12a9b",
+    storageBucket: "jerixrestaurant-12a9b.firebasestorage.app",
+    messagingSenderId: "347378956164",
+    appId: "1:347378956164:web:af66d148cd20b417124fd1",
+    measurementId: "G-CE02CK78XQ"
+};
+
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Persistence matching auth.html & profile.html
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(console.error);
+
+let selectedMethod = 'cash';
+var cart = [];
+
+// Fetch local cart on script load
+try {
+    cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
+} catch (e) {
+    console.error("Error reading jerix_cart:", e);
+}
+
+// --- HELPER FUNCTIONS ---
+
+// Helper to extract item unit price
+// --- HELPER FUNCTIONS ---
+
+// Helper to extract correct item unit price without doubling the meal price
+function getItemUnitPrice(item) {
+    // If basePrice is defined, use that as the starting point; otherwise fall back to price
+    const base = parseFloat(item.basePrice ?? item.price ?? 0) || 0;
+    
+    // Check if the price already accounts for the meal option
+    if (item.type === 'meal') {
+        // If the item has an explicit basePrice, add the 2.00 € meal surcharge
+        if (item.basePrice !== undefined) {
+            return base + 2.00;
+        }
+        // If 'price' was already updated to include the meal fee in the cart, use it directly
+        return base;
+    }
+    
+    return base;
+}
+
+// Calculate total cart order value
+function calculateTotal() {
+    let total = 0;
+    cart.forEach(item => {
+        const unitPrice = getItemUnitPrice(item);
+        const qty = parseInt(item.quantity, 10) || 1;
+        total += unitPrice * qty;
+    });
+    return total;
+}
+
+// Render dynamic cart breakdown into DOM
+function renderOrderSummary() {
+    const container = document.getElementById("orderItemsContainer");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    if (!cart || cart.length === 0) {
+        container.innerHTML = `<p style="color: #888;">Votre panier est vide.</p>`;
+        return;
+    }
+
+    cart.forEach(item => {
+        const unitPrice = getItemUnitPrice(item);
+        const qty = parseInt(item.quantity, 10) || 1;
+        const lineTotal = (unitPrice * qty).toFixed(2);
+
+        const itemRow = document.createElement("div");
+        itemRow.style.cssText = "display: flex; justify-content: space-between; align-items: center; color: #ccc; font-size: 0.95rem;";
+        
+        itemRow.innerHTML = `
+            <div>
+                <span style="color: #fff; font-weight: bold;">${item.name || 'Produit'}</span> x${qty}
+                ${item.type === 'meal' ? '<span style="color: #ffcc00; font-size: 0.8rem;"> (Formule Menu)</span>' : ''}
+            </div>
+            <div style="color: #ffcc00; font-weight: bold;">${lineTotal} €</div>
+        `;
+        container.appendChild(itemRow);
+    });
+}
+
+// Live Auth State & Firestore Sync
+function loadUserProfile() {
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            const email = user.email || "";
+            document.getElementById("customerEmail").value = email;
+            document.getElementById("profileHeaderEmail").textContent = email;
+
+            // Fetch profile record directly from Firestore
+            db.collection("users").doc(user.uid).get().then((doc) => {
+                let name = user.displayName || "Client Connecté";
+                let address = "";
+                let phone = "";
+
+                if (doc.exists) {
+                    const data = doc.data();
+                    name = data.name || data.fullName || name;
+                    address = data.address || "";
+                    phone = data.phone || "";
+                }
+
+                document.getElementById("profileHeaderName").textContent = name;
+                document.getElementById("customerName").value = name;
+                if (address) document.getElementById("deliveryAddress").value = address;
+                if (phone) document.getElementById("deliveryPhone").value = phone;
+
+                document.getElementById("profileStatusBadge").textContent = "Compte";
+                document.getElementById("profileStatusBadge").style.color = "#ffcc00";
+
+            }).catch((error) => {
+                console.error("Error loading profile:", error);
+                document.getElementById("profileHeaderName").textContent = user.email || "Client Connecté";
+                document.getElementById("profileStatusBadge").textContent = "Compte";
+                document.getElementById("profileStatusBadge").style.color = "#ffcc00";
+            });
+        } else {
+            document.getElementById("profileHeaderName").textContent = "Invité (Non connecté)";
+            document.getElementById("profileHeaderEmail").textContent = "Commandez en tant qu'invité";
+            document.getElementById("profileStatusBadge").textContent = "Invité";
+            document.getElementById("profileStatusBadge").style.color = "#aaa";
+        }
+    });
+}
+
+// --- DOM EVENT LISTENERS & FORMATTING ---
+document.addEventListener("DOMContentLoaded", () => {
+    renderOrderSummary();
+    const total = calculateTotal();
+    const totalDisplay = document.getElementById("paymentTotalDisplay");
+    if (totalDisplay) {
+        totalDisplay.textContent = total.toFixed(2) + " €";
+    }
+
+    loadUserProfile();
+
+    // Format Card Number (space every 4 digits)
+    const cardNumInput = document.getElementById("cardNumber");
+    if (cardNumInput) {
+        cardNumInput.addEventListener("input", (e) => {
+            let val = e.target.value.replace(/\D/g, "");
+            val = val.substring(0, 16);
+            e.target.value = val.replace(/(.{4})/g, "$1 ").trim();
+        });
+    }
+
+    // Format Expiry Date (MM/YY)
+    const cardExpiryInput = document.getElementById("cardExpiry");
+    if (cardExpiryInput) {
+        cardExpiryInput.addEventListener("input", (e) => {
+            let val = e.target.value.replace(/\D/g, "");
+            val = val.substring(0, 4);
+            if (val.length >= 3) {
+                e.target.value = val.substring(0, 2) + "/" + val.substring(2);
+            } else {
+                e.target.value = val;
+            }
+        });
+    }
+
+    // Format CVC (Digits only)
+    const cardCvcInput = document.getElementById("cardCvc");
+    if (cardCvcInput) {
+        cardCvcInput.addEventListener("input", (e) => {
+            e.target.value = e.target.value.replace(/\D/g, "").substring(0, 4);
+        });
+    }
+});
+
+// Switch Payment Method UI
+function selectPaymentMethod(method) {
+    selectedMethod = method;
+    const cashLabel = document.getElementById("optionCashLabel");
+    const cardLabel = document.getElementById("optionCardLabel");
+    const cardContainer = document.getElementById("cardDetailsContainer");
+    const submitBtn = document.getElementById("submitOrderBtn");
+
+    if (method === 'cash') {
+        document.getElementById("payCash").checked = true;
+        cashLabel.style.borderColor = "#ffcc00";
+        cardLabel.style.borderColor = "#444";
+        cardContainer.style.display = "none";
+        submitBtn.textContent = "Valider la commande (Espèces)";
+    } else {
+        document.getElementById("payCard").checked = true;
+        cardLabel.style.borderColor = "#ffcc00";
+        cashLabel.style.borderColor = "#444";
+        cardContainer.style.display = "block";
+        submitBtn.textContent = "Payer par Carte (Test Run)";
+    }
+}
+
+// Handle final order validation & Firestore write
+async function processOrder() {
+    const name = document.getElementById("customerName").value.trim();
+    const email = document.getElementById("customerEmail").value.trim();
+    const address = document.getElementById("deliveryAddress").value.trim();
+    const phone = document.getElementById("deliveryPhone").value.trim();
+
+    if (!name || !email || !address || !phone) {
+        alert("Veuillez remplir toutes vos informations de livraison.");
+        return;
+    }
+
+    if (cart.length === 0) {
+        alert("Votre panier est vide !");
+        return;
+    }
+
+    // Trial Card Validation
+    if (selectedMethod === 'card') {
+        const cardNumber = document.getElementById("cardNumber").value.replace(/\s+/g, "");
+        const cardExpiry = document.getElementById("cardExpiry").value.trim();
+        const cardCvc = document.getElementById("cardCvc").value.trim();
+
+        if (cardNumber.length !== 16) {
+            alert("Numéro de carte invalide. Veuillez entrer un numéro à 16 chiffres (ex: 4242 4242 4242 4242).");
+            return;
+        }
+
+        const expiryRegex = /^(0[1-9]|1[0-2])\/\d{2}$/;
+        if (!expiryRegex.test(cardExpiry)) {
+            alert("Date d'expiration invalide. Format requis : MM/AA (ex: 12/28).");
+            return;
+        }
+
+        if (cardCvc.length < 3) {
+            alert("Code CVC invalide (3 ou 4 chiffres requis).");
+            return;
+        }
+    }
+
+    const submitBtn = document.getElementById("submitOrderBtn");
+    submitBtn.disabled = true;
+    submitBtn.textContent = selectedMethod === 'card' ? "Traitement de la carte (Test)..." : "Traitement...";
+
+    // Simulate network latency for payment gateway response
+    if (selectedMethod === 'card') {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    const totalAmount = calculateTotal();
+    const user = auth.currentUser;
+
+    const newOrder = {
+        userId: user ? user.uid : "guest",
+        customerName: name,
+        customerEmail: email,
+        deliveryAddress: address,
+        deliveryPhone: phone,
+        items: cart,
+        totalAmount: totalAmount,
+        paymentMethod: selectedMethod,
+        paymentStatus: selectedMethod === 'card' ? "Paid (Trial)" : "Pending (Cash)",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+        await db.collection("orders").add(newOrder);
+
+        if (selectedMethod === 'card') {
+            alert(`✅ Paiement d'essai réussi !\nMontant : ${totalAmount.toFixed(2)} €\nMerci pour votre commande, ${name}.`);
+        } else {
+            alert(`✅ Commande enregistrée !\nVous réglerez ${totalAmount.toFixed(2)} € à la livraison.`);
+        }
+
+        localStorage.removeItem("jerix_cart");
+        window.location.href = "index.html";
+
+    } catch (error) {
+        console.error("Error saving order:", error);
+        alert("Une erreur est survenue lors de l'enregistrement. Veuillez réessayer.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = selectedMethod === 'cash' ? "Valider la commande (Espèces)" : "Payer par Carte (Test Run)";
+    }
+}
+    </script>
+</body>
+</html>
