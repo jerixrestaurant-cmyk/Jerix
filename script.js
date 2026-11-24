@@ -1,18 +1,7 @@
-require('dotenv').config();
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-
-// Example: Using the secret key securely
-console.log("Stripe initialized securely.");
+// Replace with your live Render Web Service URL once deployed
+const RENDER_BACKEND_URL = "https://YOUR-RENDER-SERVICE.onrender.com";
 
 var cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
-
-
-// At the top of script.js
-if (typeof cart === "undefined") {
-    var cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
-} else {
-    cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
-}
 
 document.addEventListener("DOMContentLoaded", () => {
     // Gallery Carousel Navigation
@@ -32,7 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Floating Checkout Box Toggle (Guarded against duplicate handlers in index.html)
+    // Floating Checkout Box Toggle
     const toggleHeader = document.getElementById("checkoutBoxToggle");
     const boxContent = document.getElementById("checkoutBoxContent");
 
@@ -54,35 +43,30 @@ function clearCart() {
     updateCartUI();
 }
 
-function addToCart(productName, productPrice) {
+function addToCart(productName, productPrice, itemType = null) {
     const validPrice = typeof productPrice === "number" && !isNaN(productPrice) ? productPrice : 0;
     
-    // Get current cart from localStorage
-    let currentCart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
+    // Sync global cart variable directly
+    cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
     
-    // Check if item already exists
-    const existingIndex = currentCart.findIndex(item => item.name === productName);
+    const existingIndex = cart.findIndex(item => item.name === productName && item.type === itemType);
 
     if (existingIndex > -1) {
-        currentCart[existingIndex].quantity = (currentCart[existingIndex].quantity || 1) + 1;
+        cart[existingIndex].quantity = (cart[existingIndex].quantity || 1) + 1;
     } else {
-        currentCart.push({
+        cart.push({
             name: productName,
             price: validPrice,
+            type: itemType,
             quantity: 1
         });
     }
 
-    // Save back to localStorage and update UI
-    localStorage.setItem("jerix_cart", JSON.stringify(currentCart));
-    
-    if (typeof updateCartUI === "function") {
-        updateCartUI();
-    }
+    localStorage.setItem("jerix_cart", JSON.stringify(cart));
+    updateCartUI();
 }
 
 function updateCartUI() {
-    // Filter out corrupted items missing a numeric price
     cart = cart.filter(item => typeof item.price === "number" && !isNaN(item.price));
     localStorage.setItem("jerix_cart", JSON.stringify(cart));
 
@@ -134,7 +118,39 @@ function updateCartUI() {
     }
 }
 
-// 3. User Auth State LocalStorage Sync
+// 3. Stripe Checkout Redirect via Render Backend
+async function checkoutWithStripe() {
+    if (!cart || cart.length === 0) {
+        alert("Votre panier est vide !");
+        return;
+    }
+
+    try {
+        const response = await fetch(`${RENDER_BACKEND_URL}/create-checkout-session`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                items: cart,
+                customerName: localStorage.getItem("jerix_user_name") || "Client",
+                customerPhone: localStorage.getItem("jerix_user_phone") || "",
+                customerAddress: localStorage.getItem("jerix_user_address") || ""
+            })
+        });
+
+        const data = await response.json();
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            console.error("Stripe session error:", data.error);
+            alert("Erreur lors de la création du paiement.");
+        }
+    } catch (err) {
+        console.error("Network error connecting to Render:", err);
+        alert("Impossible de contacter le serveur de paiement.");
+    }
+}
+
+// 4. User Auth State LocalStorage Sync
 if (typeof firebase !== "undefined" && firebase.auth) {
     firebase.auth().onAuthStateChanged((user) => {
         if (user && typeof db !== "undefined") {
