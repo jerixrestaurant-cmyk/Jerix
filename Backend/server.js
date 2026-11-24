@@ -1,168 +1,161 @@
-// Replace with your live Render Web Service URL once deployed
-const RENDER_BACKEND_URL = "https://YOUR-RENDER-SERVICE.onrender.com";
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const admin = require('firebase-admin');
 
-var cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
+if (!admin.apps.length) {
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+}
 
-document.addEventListener("DOMContentLoaded", () => {
-    // Gallery Carousel Navigation
-    const container = document.getElementById("galleryContainer");
-    const prevBtn = document.getElementById("prevBtn");
-    const nextBtn = document.getElementById("nextBtn");
+const db = admin.firestore();
+const app = express();
 
-    if (nextBtn && container) {
-        nextBtn.addEventListener("click", () => {
-            container.scrollBy({ left: container.clientWidth + 20, behavior: 'smooth' });
-        });
+// 1. STRIPE WEBHOOK — Must come BEFORE express.json()
+app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const orderRef = db.collection('orders').doc(session.id);
+    const existing = await orderRef.get();
+
+    if (!existing.exists) {
+      let parsedItems = [];
+      try {
+        parsedItems = JSON.parse(session.metadata?.items || '[]');
+      } catch (e) {
+        parsedItems = [];
+      }
+
+      const totalEuros = typeof session.amount_total === 'number'
+        ? Number((session.amount_total / 100).toFixed(2))
+        : 0;
+
+      await orderRef.set({
+        stripeSessionId: session.id,
+        userId: session.metadata?.userId || 'guest',
+        customerName: session.metadata?.customerName || 'Client',
+        customerEmail: session.metadata?.customerEmail || session.customer_details?.email || '',
+        deliveryAddress: session.metadata?.deliveryAddress || '',
+        deliveryPhone: session.metadata?.deliveryPhone || '',
+        items: parsedItems,
+        totalAmount: totalEuros,
+        currency: session.currency || 'eur',
+        paymentMethod: 'card',
+        paymentStatus: 'Paid',
+        status: 'pending',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
     }
+  }
 
-    if (prevBtn && container) {
-        prevBtn.addEventListener("click", () => {
-            container.scrollBy({ left: -(container.clientWidth + 20), behavior: 'smooth' });
-        });
-    }
-
-    // Floating Checkout Box Toggle
-    const toggleHeader = document.getElementById("checkoutBoxToggle");
-    const boxContent = document.getElementById("checkoutBoxContent");
-
-    if (toggleHeader && boxContent && !toggleHeader.dataset.listenerAttached) {
-        toggleHeader.dataset.listenerAttached = "true";
-        toggleHeader.addEventListener("click", () => {
-            boxContent.style.display = (boxContent.style.display === "none" || boxContent.style.display === "") ? "block" : "none";
-        });
-    }
-
-    // Refresh Cart UI on initial page load
-    updateCartUI();
+  res.status(200).json({ received: true });
 });
 
-// 2. Global Cart Helper Functions
-function clearCart() {
-    cart = [];
-    localStorage.removeItem("jerix_cart");
-    updateCartUI();
-}
+// 2. STANDARD MIDDLEWARE
+const allowedOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-function addToCart(productName, productPrice, itemType = null) {
-    const validPrice = typeof productPrice === "number" && !isNaN(productPrice) ? productPrice : 0;
-    
-    // Sync global cart variable directly
-    cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
-    
-    const existingIndex = cart.findIndex(item => item.name === productName && item.type === itemType);
+app.use(cors({
+  origin: allowedOrigins.length > 0 ? allowedOrigins : true
+}));
+app.use(express.json());
 
-    if (existingIndex > -1) {
-        cart[existingIndex].quantity = (cart[existingIndex].quantity || 1) + 1;
-    } else {
-        cart.push({
-            name: productName,
-            price: validPrice,
-            type: itemType,
-            quantity: 1
-        });
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+// 3. CREATE STRIPE CHECKOUT SESSION
+app.post('/create-checkout-session', async (req, res) => {
+  try {
+    const {
+      userId,
+      customerName,
+      customerEmail,
+      deliveryAddress,
+      deliveryPhone,
+      items
+    } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Panier vide ou invalide.' });
     }
 
-    localStorage.setItem("jerix_cart", JSON.stringify(cart));
-    updateCartUI();
-}
+    const line_items = items.map((item) => {
+      const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+      const unitPrice = parseFloat(item.unitPrice ?? item.price ?? 0) || 0;
+      const unitAmountCents = Math.round(unitPrice * 100);
 
-function updateCartUI() {
-    cart = cart.filter(item => typeof item.price === "number" && !isNaN(item.price));
-    localStorage.setItem("jerix_cart", JSON.stringify(cart));
+      if (unitAmountCents <= 0) {
+        throw new Error(`Prix invalide pour l'article : ${item.name || 'Produit'}`);
+      }
 
-    const cartCountEl = document.getElementById("cartCount");
-    const cartTotalEl = document.getElementById("cartTotal");
-    const cartItemsList = document.getElementById("cartItemsList");
+      const suffix = item.type === 'meal' ? ' (Formule Menu)' : '';
 
-    let totalCount = 0;
-    let totalPrice = 0;
-
-    cart.forEach(item => {
-        const qty = item.quantity || 1;
-        totalCount += qty;
-        totalPrice += item.price * qty;
+      return {
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: `${item.name || 'Produit'}${suffix}`
+          },
+          unit_amount: unitAmountCents
+        },
+        quantity: qty
+      };
     });
 
-    if (cartCountEl) cartCountEl.textContent = totalCount;
-    if (cartTotalEl) cartTotalEl.textContent = totalPrice.toFixed(2) + " €";
+    const compactItems = items.map((i) => ({
+      name: i.name,
+      type: i.type || null,
+      quantity: parseInt(i.quantity, 10) || 1,
+      unitPrice: Number((parseFloat(i.unitPrice ?? i.price ?? 0) || 0).toFixed(2))
+    }));
 
-    if (cartItemsList) {
-        if (cart.length === 0) {
-            cartItemsList.innerHTML = `<p class="empty-cart-text">Votre panier est vide.</p>`;
-        } else {
-            cartItemsList.innerHTML = "";
-            cart.forEach((item, index) => {
-                const row = document.createElement("div");
-                row.className = "cart-item-row";
-                row.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.9rem; color: #fff; cursor: pointer;";
-                row.title = "Cliquez pour supprimer cet article";
-                
-                const label = item.type ? `${item.quantity}x ${item.name} (${item.type === 'meal' ? 'Menu' : 'Seul'})` : `${item.quantity}x ${item.name}`;
-                
-                row.innerHTML = `
-                    <span class="cart-item-name">${label}</span>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="cart-item-price">${(item.price * item.quantity).toFixed(2)} €</span>
-                        <span style="color: #ff4444; font-weight: bold;">✕</span>
-                    </div>
-                `;
-                
-                row.addEventListener("click", () => {
-                    cart.splice(index, 1);
-                    updateCartUI();
-                });
+    const baseFrontendUrl = allowedOrigins[0] || 'http://localhost:3000';
 
-                cartItemsList.appendChild(row);
-            });
-        }
-    }
-}
-
-// 3. Stripe Checkout Redirect via Render Backend
-async function checkoutWithStripe() {
-    if (!cart || cart.length === 0) {
-        alert("Votre panier est vide !");
-        return;
-    }
-
-    try {
-        const response = await fetch(`${RENDER_BACKEND_URL}/create-checkout-session`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                items: cart,
-                customerName: localStorage.getItem("jerix_user_name") || "Client",
-                customerPhone: localStorage.getItem("jerix_user_phone") || "",
-                customerAddress: localStorage.getItem("jerix_user_address") || ""
-            })
-        });
-
-        const data = await response.json();
-        if (data.url) {
-            window.location.href = data.url;
-        } else {
-            console.error("Stripe session error:", data.error);
-            alert("Erreur lors de la création du paiement.");
-        }
-    } catch (err) {
-        console.error("Network error connecting to Render:", err);
-        alert("Impossible de contacter le serveur de paiement.");
-    }
-}
-
-// 4. User Auth State LocalStorage Sync
-if (typeof firebase !== "undefined" && firebase.auth) {
-    firebase.auth().onAuthStateChanged((user) => {
-        if (user && typeof db !== "undefined") {
-            db.collection("users").doc(user.uid).get().then((doc) => {
-                if (doc.exists) {
-                    const data = doc.data();
-                    localStorage.setItem("jerix_user_name", data.name || data.fullName || "Utilisateur");
-                    localStorage.setItem("jerix_user_email", user.email);
-                    if (data.address) localStorage.setItem("jerix_user_address", data.address);
-                    if (data.phone) localStorage.setItem("jerix_user_phone", data.phone);
-                }
-            }).catch(err => console.error("Error fetching user data for local storage:", err));
-        }
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      customer_email: customerEmail || undefined,
+      line_items,
+      metadata: {
+        userId: String(userId || 'guest').slice(0, 100),
+        customerName: String(customerName || '').slice(0, 150),
+        customerEmail: String(customerEmail || '').slice(0, 150),
+        deliveryAddress: String(deliveryAddress || '').slice(0, 250),
+        deliveryPhone: String(deliveryPhone || '').slice(0, 50),
+        items: JSON.stringify(compactItems).slice(0, 490)
+      },
+      success_url: `${baseFrontendUrl}/index.html?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseFrontendUrl}/payment.html?payment=cancelled`
     });
-}
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Error creating Stripe checkout session:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Jerix backend listening on port ${PORT}`);
+});
