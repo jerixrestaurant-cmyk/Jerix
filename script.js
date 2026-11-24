@@ -1,9 +1,22 @@
-// Replace with your live Render Web Service URL once deployed
+// Replace with your live Render Web Service URL
 const RENDER_BACKEND_URL = "https://jerix.onrender.com";
 
-var cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
+var cart = [];
+try {
+    cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
+} catch (e) {
+    cart = [];
+}
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Clear cart if returning from a successful Stripe Checkout session
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "success") {
+        localStorage.removeItem("jerix_cart");
+        cart = [];
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     // Gallery Carousel Navigation
     const container = document.getElementById("galleryContainer");
     const prevBtn = document.getElementById("prevBtn");
@@ -45,10 +58,13 @@ function clearCart() {
 
 function addToCart(productName, productPrice, itemType = null) {
     const validPrice = typeof productPrice === "number" && !isNaN(productPrice) ? productPrice : 0;
-    
-    // Sync global cart variable directly
-    cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
-    
+
+    try {
+        cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
+    } catch (e) {
+        cart = [];
+    }
+
     const existingIndex = cart.findIndex(item => item.name === productName && item.type === itemType);
 
     if (existingIndex > -1) {
@@ -67,6 +83,12 @@ function addToCart(productName, productPrice, itemType = null) {
 }
 
 function updateCartUI() {
+    try {
+        cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
+    } catch (e) {
+        cart = [];
+    }
+
     cart = cart.filter(item => typeof item.price === "number" && !isNaN(item.price));
     localStorage.setItem("jerix_cart", JSON.stringify(cart));
 
@@ -96,9 +118,11 @@ function updateCartUI() {
                 row.className = "cart-item-row";
                 row.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.9rem; color: #fff; cursor: pointer;";
                 row.title = "Cliquez pour supprimer cet article";
-                
-                const label = item.type ? `${item.quantity}x ${item.name} (${item.type === 'meal' ? 'Menu' : 'Seul'})` : `${item.quantity}x ${item.name}`;
-                
+
+                const label = item.type
+                    ? `${item.quantity}x ${item.name} (${item.type === 'meal' ? 'Menu' : 'Seul'})`
+                    : `${item.quantity}x ${item.name}`;
+
                 row.innerHTML = `
                     <span class="cart-item-name">${label}</span>
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -106,9 +130,10 @@ function updateCartUI() {
                         <span style="color: #ff4444; font-weight: bold;">✕</span>
                     </div>
                 `;
-                
+
                 row.addEventListener("click", () => {
                     cart.splice(index, 1);
+                    localStorage.setItem("jerix_cart", JSON.stringify(cart));
                     updateCartUI();
                 });
 
@@ -125,20 +150,28 @@ async function checkoutWithStripe() {
         return;
     }
 
+    const normalizedItems = cart.map(item => ({
+        name: item.name || "Produit",
+        type: item.type || null,
+        quantity: parseInt(item.quantity, 10) || 1,
+        unitPrice: Number((parseFloat(item.unitPrice ?? item.price ?? 0) || 0).toFixed(2))
+    }));
+
     try {
         const response = await fetch(`${RENDER_BACKEND_URL}/create-checkout-session`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                items: cart,
+                items: normalizedItems,
                 customerName: localStorage.getItem("jerix_user_name") || "Client",
-                customerPhone: localStorage.getItem("jerix_user_phone") || "",
-                customerAddress: localStorage.getItem("jerix_user_address") || ""
+                customerEmail: localStorage.getItem("jerix_user_email") || "",
+                deliveryAddress: localStorage.getItem("jerix_user_address") || "",
+                deliveryPhone: localStorage.getItem("jerix_user_phone") || ""
             })
         });
 
         const data = await response.json();
-        if (data.url) {
+        if (response.ok && data.url) {
             window.location.href = data.url;
         } else {
             console.error("Stripe session error:", data.error);
@@ -153,12 +186,12 @@ async function checkoutWithStripe() {
 // 4. User Auth State LocalStorage Sync
 if (typeof firebase !== "undefined" && firebase.auth) {
     firebase.auth().onAuthStateChanged((user) => {
-        if (user && typeof db !== "undefined") {
+        if (user && typeof db !== "undefined" && typeof db.collection === "function") {
             db.collection("users").doc(user.uid).get().then((doc) => {
                 if (doc.exists) {
                     const data = doc.data();
                     localStorage.setItem("jerix_user_name", data.name || data.fullName || "Utilisateur");
-                    localStorage.setItem("jerix_user_email", user.email);
+                    if (user.email) localStorage.setItem("jerix_user_email", user.email);
                     if (data.address) localStorage.setItem("jerix_user_address", data.address);
                     if (data.phone) localStorage.setItem("jerix_user_phone", data.phone);
                 }
