@@ -1,5 +1,5 @@
 // Replace with your live Render Web Service URL once deployed
-const RENDER_BACKEND_URL = "https://YOUR-RENDER-SERVICE.onrender.com";
+const RENDER_BACKEND_URL = "https://jerix.onrender.com";
 
 var cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
 
