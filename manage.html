@@ -31,6 +31,21 @@
             </div>
         </div>
 
+        <!-- RESET ORDERS & PAYMENTS BUTTON -->
+        <div style="text-align: right; margin: 15px 0 30px 0;">
+            <button id="resetAnalyticsBtn" onclick="resetOrdersAndPayments()" style="
+                background-color: #ff4444;
+                color: #fff;
+                border: none;
+                padding: 10px 18px;
+                border-radius: 6px;
+                font-weight: bold;
+                cursor: pointer;
+                font-size: 0.9rem;">
+                🗑️ Réinitialiser les commandes et paiements (Espèces / Carte)
+            </button>
+        </div>
+
         <!-- MENU MANAGEMENT SECTION -->
         <div class="menu-section">
             <h2>Gestion du Menu</h2>
@@ -112,113 +127,6 @@
     <!-- Link to external JS -->
     <script src="manage.js"></script>
 
-    <!-- Live Sales & Chart Analytics Listener Script -->
-    <script>
-        let salesChartInstance = null;
 
-        function initLiveSalesChart() {
-            const ctx = document.getElementById('salesBarChart').getContext('2d');
-
-            // Initialize Chart.js with dual Y-axes (Revenue + Sales Volume)
-            salesChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: [], // Live Dates
-                    datasets: [
-                        {
-                            label: 'Volume de Ventes (Quantité)',
-                            data: [],
-                            backgroundColor: 'rgba(255, 215, 0, 0.85)', // Gold
-                            borderColor: '#ffd700',
-                            borderWidth: 1,
-                            yAxisID: 'yVolume'
-                        },
-                        {
-                            label: 'Revenus (€)',
-                            data: [],
-                            backgroundColor: 'rgba(255, 255, 255, 0.25)', // White outline
-                            borderColor: '#ffffff',
-                            borderWidth: 1,
-                            type: 'line',
-                            yAxisID: 'yRevenue'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        yVolume: {
-                            type: 'linear',
-                            position: 'left',
-                            title: { display: true, text: 'Volume de Commandes', color: '#ffd700' },
-                            ticks: { color: '#ffd700', stepSize: 1 },
-                            grid: { color: '#222' }
-                        },
-                        yRevenue: {
-                            type: 'linear',
-                            position: 'right',
-                            title: { display: true, text: 'Revenus (€)', color: '#fff' },
-                            ticks: { color: '#fff' },
-                            grid: { drawOnChartArea: false }
-                        },
-                        x: {
-                            ticks: { color: '#ccc' },
-                            grid: { color: '#222' }
-                        }
-                    },
-                    plugins: {
-                        legend: { labels: { color: '#fff' } }
-                    }
-                }
-            });
-
-            // Listen for changes in real-time on the orders collection
-            if (typeof firebase !== 'undefined' && firebase.firestore) {
-                const db = firebase.firestore();
-                db.collection("orders").onSnapshot((snapshot) => {
-                    const salesByDate = {};
-
-                    snapshot.forEach((doc) => {
-                        const order = doc.data();
-                        
-                        // Parse timestamp or fallback to date string
-                        let dateStr = "Aujourd'hui";
-                        if (order.createdAt && order.createdAt.toDate) {
-                            dateStr = order.createdAt.toDate().toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' });
-                        } else if (order.date) {
-                            dateStr = order.date;
-                        }
-
-                        if (!salesByDate[dateStr]) {
-                            salesByDate[dateStr] = { volume: 0, revenue: 0 };
-                        }
-
-                        // Calculate total volume (quantity of items) and total price
-                        const itemCount = order.items ? order.items.reduce((sum, item) => sum + (item.quantity || 1), 0) : 1;
-                        const totalPrice = parseFloat(order.total) || parseFloat(order.totalPrice) || 0;
-
-                        salesByDate[dateStr].volume += itemCount;
-                        salesByDate[dateStr].revenue += totalPrice;
-                    });
-
-                    // Format vectors for Chart.js
-                    const labels = Object.keys(salesByDate);
-                    const volumeData = labels.map(date => salesByDate[date].volume);
-                    const revenueData = labels.map(date => salesByDate[date].revenue);
-
-                    // Re-render chart live
-                    salesChartInstance.data.labels = labels;
-                    salesChartInstance.data.datasets[0].data = volumeData;
-                    salesChartInstance.data.datasets[1].data = revenueData;
-                    salesChartInstance.update();
-                });
-            }
-        }
-
-        document.addEventListener("DOMContentLoaded", function() {
-            initLiveSalesChart();
-        });
-    </script>
 </body>
 </html>

@@ -47,7 +47,7 @@
                 </div>
 
                 <br>
-                <p style="font-size: 0.9rem; color: #888; text-align: center;">💡 <em>Rappel : Livraison gratuite à partir de 20€ d'achat.</em></p>
+                <p style="font-size: 0.9rem; color: #888; text-align: center;">💡 <em>Autres articles en boutique</em></p>
             </div>
         </div>
     </section>
@@ -66,10 +66,8 @@
     </div>
 
     <!-- Sync Cart Script -->
-    <!-- Sync Cart Script -->
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-            // Load cart data from localStorage so 'cart' actually exists!
             let cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
             
             const fullCartList = document.getElementById("fullCartList");
@@ -87,17 +85,12 @@
                 let totalPrice = 0;
 
                 cart.forEach((item, index) => {
-                    // Lock down basePrice strictly once so double calculations don't compound
                     if (item.basePrice === undefined) {
                         item.basePrice = parseFloat(item.price) || 0;
                     }
-                    if (!item.type) item.type = 'single';
 
-                    // Calculate unit price dynamically based on option
-                    const itemUnitPrice = item.type === 'meal' ? (item.basePrice + 2.00) : item.basePrice;
-                    
-                    // Final calculated item price saved back to cart object
-                    item.price = itemUnitPrice; 
+                    const itemUnitPrice = item.basePrice;
+                    item.price = itemUnitPrice;
                     const itemTotal = itemUnitPrice * (item.quantity || 1);
                     totalPrice += itemTotal;
 
@@ -114,16 +107,6 @@
                             ${item.customNotes ? `<div style="font-size: 0.78rem; color: #ffcc00; font-style: italic; margin-top: 4px;">Note: ${item.customNotes}</div>` : ''}
                         </div>
 
-                        <!-- Option Toggle: Single / Meal -->
-                        <div style="display: flex; background: #111; border: 1px solid #444; border-radius: 6px; overflow: hidden;">
-                            <button onclick="setOptionType(${index}, 'single')" style="padding: 6px 12px; border: none; font-size: 0.8rem; font-weight: bold; cursor: pointer; background: ${item.type === 'single' ? '#ffcc00' : 'transparent'}; color: ${item.type === 'single' ? '#000' : '#aaa'}; transition: 0.2s;">
-                                Seul
-                            </button>
-                            <button onclick="setOptionType(${index}, 'meal')" style="padding: 6px 12px; border: none; font-size: 0.8rem; font-weight: bold; cursor: pointer; background: ${item.type === 'meal' ? '#ffcc00' : 'transparent'}; color: ${item.type === 'meal' ? '#000' : '#aaa'}; transition: 0.2s;">
-                                Menu (+2€)
-                            </button>
-                        </div>
-
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <span style="color: #ffcc00; font-weight: bold; min-width: 60px; text-align: right;">${itemTotal.toFixed(2)} €</span>
                             <button onclick="removeItem(${index})" style="background: #ff4444; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;">✕</button>
@@ -135,11 +118,6 @@
                 if (fullCartTotal) fullCartTotal.textContent = totalPrice.toFixed(2) + " €";
                 localStorage.setItem("jerix_cart", JSON.stringify(cart));
             }
-
-            window.setOptionType = function(index, type) {
-                cart[index].type = type;
-                renderFullCart(); // Immediate total update on UI and localStorage
-            };
 
             window.removeItem = function(index) {
                 cart.splice(index, 1);

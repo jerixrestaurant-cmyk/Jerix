@@ -90,16 +90,17 @@ function initCharts() {
     });
 }
 
-// 2.5 Load Live Analytics Data from Firestore 'orders' collection
+// 2.5 Load Live Analytics Data from Firestore 'orders' collection (in Euros)
 function loadAnalyticsData() {
     db.collection("orders").onSnapshot((snapshot) => {
         let dailySales = [0, 0, 0, 0, 0, 0, 0];
-        let paymentMethods = { card: 0, cash: 0 };
+        let paymentTotals = { card: 0, cash: 0 };
 
         snapshot.forEach((doc) => {
             const order = doc.data();
-            const total = parseFloat(order.total || order.amount || 0);
-            
+            const rawTotal = order.totalAmount ?? order.total ?? order.amount ?? 0;
+            const total = parseFloat(rawTotal) || 0;
+
             if (order.createdAt && typeof order.createdAt.toDate === 'function') {
                 const date = order.createdAt.toDate();
                 let dayIndex = date.getDay();
@@ -109,19 +110,22 @@ function loadAnalyticsData() {
 
             const method = (order.paymentMethod || order.method || '').toLowerCase();
             if (method.includes('card') || method.includes('carte')) {
-                paymentMethods.card += 1;
+                paymentTotals.card += total;
             } else if (method.includes('cash') || method.includes('especes') || method.includes('espèces')) {
-                paymentMethods.cash += 1;
+                paymentTotals.cash += total;
             }
         });
 
         if (salesChartInstance) {
-            salesChartInstance.data.datasets[0].data = dailySales;
+            salesChartInstance.data.datasets[0].data = dailySales.map(v => Number(v.toFixed(2)));
             salesChartInstance.update();
         }
 
         if (ordersChartInstance) {
-            ordersChartInstance.data.datasets[0].data = [paymentMethods.card, paymentMethods.cash];
+            ordersChartInstance.data.datasets[0].data = [
+                Number(paymentTotals.card.toFixed(2)),
+                Number(paymentTotals.cash.toFixed(2))
+            ];
             ordersChartInstance.update();
         }
     }, (error) => {
@@ -310,5 +314,48 @@ window.deleteProduct = function(id) {
         db.collection("menu").doc(id).delete().catch((error) => {
             console.error("Erreur lors de la suppression :", error);
         });
+    }
+};
+window.resetOrdersAndPayments = async function () {
+    const confirmed = confirm(
+        "Voulez-vous vraiment réinitialiser toutes les commandes ainsi que les totaux Carte (€) et Espèces (€) à 0.00 € ?"
+    );
+    if (!confirmed) return;
+
+    try {
+        const snapshot = await db.collection("orders").get();
+
+        if (!snapshot.empty) {
+            const batchSize = 500;
+            let batch = db.batch();
+            let count = 0;
+
+            for (const doc of snapshot.docs) {
+                batch.delete(doc.ref);
+                count++;
+                if (count === batchSize) {
+                    await batch.commit();
+                    batch = db.batch();
+                    count = 0;
+                }
+            }
+            if (count > 0) {
+                await batch.commit();
+            }
+        }
+
+        if (ordersChartInstance) {
+            ordersChartInstance.data.datasets[0].data = [0, 0];
+            ordersChartInstance.update();
+        }
+        if (salesChartInstance) {
+            salesChartInstance.data.datasets[0].data = [0, 0, 0, 0, 0, 0, 0];
+            salesChartInstance.update();
+        }
+
+        alert("Commandes, Carte (0.00 €) et Espèces (0.00 €) réinitialisés.");
+    } catch (error) {
+        console.error("Erreur lors de la réinitialisation :", error);
+        alert("Erreur lors de la réinitialisation : " + error.message);
     }
 };

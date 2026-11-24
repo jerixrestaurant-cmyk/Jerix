@@ -63,7 +63,7 @@
                 <h3 style="color: #fff; margin-bottom: 20px; font-size: 1.2rem; text-align: left;">Mode de paiement</h3>
 
                 <!-- Options Grid -->
-                <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;">
+                <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px;">
                     <label id="optionCashLabel" onclick="selectPaymentMethod('cash')" style="display: flex; align-items: center; justify-content: space-between; padding: 15px 20px; background: #222; border: 2px solid #ffcc00; border-radius: 8px; cursor: pointer;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <input type="radio" name="paymentMethod" id="payCash" value="cash" checked style="accent-color: #ffcc00; transform: scale(1.2);">
@@ -74,32 +74,16 @@
                     <label id="optionCardLabel" onclick="selectPaymentMethod('card')" style="display: flex; align-items: center; justify-content: space-between; padding: 15px 20px; background: #222; border: 2px solid #444; border-radius: 8px; cursor: pointer;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <input type="radio" name="paymentMethod" id="payCard" value="card" style="accent-color: #ffcc00; transform: scale(1.2);">
-                            <span style="color: #fff; font-weight: bold; font-size: 1rem;">💳 Carte en ligne (Trial Mode)</span>
+                            <span style="color: #fff; font-weight: bold; font-size: 1rem;">💳 Carte en ligne (Stripe)</span>
                         </div>
                     </label>
                 </div>
 
-                <!-- Card Details Form -->
-                <div id="cardDetailsContainer" style="display: none; background: #111; padding: 15px; border-radius: 8px; border: 1px solid #444; margin-bottom: 25px; text-align: left;">
-                    <h4 style="color: #ffcc00; margin-bottom: 12px; font-size: 1rem;">Détails de la Carte (Test Run)</h4>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <div>
-                            <label style="color: #ccc; font-size: 0.8rem;">Numéro de carte :</label>
-                            <input type="text" id="cardNumber" placeholder="4242 4242 4242 4242" maxlength="19" style="width: 100%; padding: 10px; background: #181818; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 0.9rem; margin-top: 4px;">
-                        </div>
-                        
-                        <div style="display: flex; gap: 10px;">
-                            <div style="flex: 1;">
-                                <label style="color: #ccc; font-size: 0.8rem;">Expiration (MM/AA) :</label>
-                                <input type="text" id="cardExpiry" placeholder="12/28" maxlength="5" style="width: 100%; padding: 10px; background: #181818; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 0.9rem; margin-top: 4px;">
-                            </div>
-                            <div style="flex: 1;">
-                                <label style="color: #ccc; font-size: 0.8rem;">CVC / CVV :</label>
-                                <input type="password" id="cardCvc" placeholder="123" maxlength="4" style="width: 100%; padding: 10px; background: #181818; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 0.9rem; margin-top: 4px;">
-                            </div>
-                        </div>
-                    </div>
+                <!-- Stripe Redirect Notice -->
+                <div id="stripeInfoContainer" style="display: none; background: #111; padding: 14px; border-radius: 8px; border: 1px solid #444; margin-bottom: 25px; text-align: left;">
+                    <p style="color: #ccc; font-size: 0.9rem; margin: 0;">
+                        Vous allez être redirigé vers la page de paiement sécurisée <strong style="color: #ffcc00;">Stripe</strong> pour finaliser votre règlement par carte.
+                    </p>
                 </div>
 
                 <!-- Customer Details Form -->
@@ -128,7 +112,9 @@
     </section>
 
     <script>
-        // --- FIREBASE CONFIGURATION & INITIALIZATION ---
+const RENDER_BACKEND_URL = "https://YOUR-RENDER-SERVICE.onrender.com";
+
+// --- FIREBASE CONFIGURATION & INITIALIZATION ---
 const firebaseConfig = {
     apiKey: "AIzaSyAFGnXNg51y82dtNVIR5Yd_JWYK1Aty5Yw",
     authDomain: "jerixrestaurant-12a9b.firebaseapp.com",
@@ -146,13 +132,11 @@ if (!firebase.apps.length) {
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Persistence matching auth.html & profile.html
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(console.error);
 
 let selectedMethod = 'cash';
 var cart = [];
 
-// Fetch local cart on script load
 try {
     cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
 } catch (e) {
@@ -161,28 +145,19 @@ try {
 
 // --- HELPER FUNCTIONS ---
 
-// Helper to extract item unit price
-// --- HELPER FUNCTIONS ---
-
-// Helper to extract correct item unit price without doubling the meal price
 function getItemUnitPrice(item) {
-    // If basePrice is defined, use that as the starting point; otherwise fall back to price
     const base = parseFloat(item.basePrice ?? item.price ?? 0) || 0;
-    
-    // Check if the price already accounts for the meal option
+
     if (item.type === 'meal') {
-        // If the item has an explicit basePrice, add the 2.00 € meal surcharge
         if (item.basePrice !== undefined) {
             return base + 2.00;
         }
-        // If 'price' was already updated to include the meal fee in the cart, use it directly
         return base;
     }
-    
+
     return base;
 }
 
-// Calculate total cart order value
 function calculateTotal() {
     let total = 0;
     cart.forEach(item => {
@@ -193,7 +168,6 @@ function calculateTotal() {
     return total;
 }
 
-// Render dynamic cart breakdown into DOM
 function renderOrderSummary() {
     const container = document.getElementById("orderItemsContainer");
     if (!container) return;
@@ -212,7 +186,7 @@ function renderOrderSummary() {
 
         const itemRow = document.createElement("div");
         itemRow.style.cssText = "display: flex; justify-content: space-between; align-items: center; color: #ccc; font-size: 0.95rem;";
-        
+
         itemRow.innerHTML = `
             <div>
                 <span style="color: #fff; font-weight: bold;">${item.name || 'Produit'}</span> x${qty}
@@ -224,7 +198,6 @@ function renderOrderSummary() {
     });
 }
 
-// Live Auth State & Firestore Sync
 function loadUserProfile() {
     auth.onAuthStateChanged((user) => {
         if (user) {
@@ -232,7 +205,6 @@ function loadUserProfile() {
             document.getElementById("customerEmail").value = email;
             document.getElementById("profileHeaderEmail").textContent = email;
 
-            // Fetch profile record directly from Firestore
             db.collection("users").doc(user.uid).get().then((doc) => {
                 let name = user.displayName || "Client Connecté";
                 let address = "";
@@ -268,7 +240,6 @@ function loadUserProfile() {
     });
 }
 
-// --- DOM EVENT LISTENERS & FORMATTING ---
 document.addEventListener("DOMContentLoaded", () => {
     renderOrderSummary();
     const total = calculateTotal();
@@ -278,64 +249,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     loadUserProfile();
-
-    // Format Card Number (space every 4 digits)
-    const cardNumInput = document.getElementById("cardNumber");
-    if (cardNumInput) {
-        cardNumInput.addEventListener("input", (e) => {
-            let val = e.target.value.replace(/\D/g, "");
-            val = val.substring(0, 16);
-            e.target.value = val.replace(/(.{4})/g, "$1 ").trim();
-        });
-    }
-
-    // Format Expiry Date (MM/YY)
-    const cardExpiryInput = document.getElementById("cardExpiry");
-    if (cardExpiryInput) {
-        cardExpiryInput.addEventListener("input", (e) => {
-            let val = e.target.value.replace(/\D/g, "");
-            val = val.substring(0, 4);
-            if (val.length >= 3) {
-                e.target.value = val.substring(0, 2) + "/" + val.substring(2);
-            } else {
-                e.target.value = val;
-            }
-        });
-    }
-
-    // Format CVC (Digits only)
-    const cardCvcInput = document.getElementById("cardCvc");
-    if (cardCvcInput) {
-        cardCvcInput.addEventListener("input", (e) => {
-            e.target.value = e.target.value.replace(/\D/g, "").substring(0, 4);
-        });
-    }
 });
 
-// Switch Payment Method UI
 function selectPaymentMethod(method) {
     selectedMethod = method;
     const cashLabel = document.getElementById("optionCashLabel");
     const cardLabel = document.getElementById("optionCardLabel");
-    const cardContainer = document.getElementById("cardDetailsContainer");
+    const stripeInfo = document.getElementById("stripeInfoContainer");
     const submitBtn = document.getElementById("submitOrderBtn");
 
     if (method === 'cash') {
         document.getElementById("payCash").checked = true;
         cashLabel.style.borderColor = "#ffcc00";
         cardLabel.style.borderColor = "#444";
-        cardContainer.style.display = "none";
+        stripeInfo.style.display = "none";
         submitBtn.textContent = "Valider la commande (Espèces)";
     } else {
         document.getElementById("payCard").checked = true;
         cardLabel.style.borderColor = "#ffcc00";
         cashLabel.style.borderColor = "#444";
-        cardContainer.style.display = "block";
-        submitBtn.textContent = "Payer par Carte (Test Run)";
+        stripeInfo.style.display = "block";
+        submitBtn.textContent = "Payer par Carte via Stripe";
     }
 }
 
-// Handle final order validation & Firestore write
 async function processOrder() {
     const name = document.getElementById("customerName").value.trim();
     const email = document.getElementById("customerEmail").value.trim();
@@ -347,76 +284,80 @@ async function processOrder() {
         return;
     }
 
-    if (cart.length === 0) {
+    if (!cart || cart.length === 0) {
         alert("Votre panier est vide !");
         return;
     }
 
-    // Trial Card Validation
-    if (selectedMethod === 'card') {
-        const cardNumber = document.getElementById("cardNumber").value.replace(/\s+/g, "");
-        const cardExpiry = document.getElementById("cardExpiry").value.trim();
-        const cardCvc = document.getElementById("cardCvc").value.trim();
-
-        if (cardNumber.length !== 16) {
-            alert("Numéro de carte invalide. Veuillez entrer un numéro à 16 chiffres (ex: 4242 4242 4242 4242).");
-            return;
-        }
-
-        const expiryRegex = /^(0[1-9]|1[0-2])\/\d{2}$/;
-        if (!expiryRegex.test(cardExpiry)) {
-            alert("Date d'expiration invalide. Format requis : MM/AA (ex: 12/28).");
-            return;
-        }
-
-        if (cardCvc.length < 3) {
-            alert("Code CVC invalide (3 ou 4 chiffres requis).");
-            return;
-        }
-    }
-
     const submitBtn = document.getElementById("submitOrderBtn");
     submitBtn.disabled = true;
-    submitBtn.textContent = selectedMethod === 'card' ? "Traitement de la carte (Test)..." : "Traitement...";
+    submitBtn.textContent = selectedMethod === 'card' ? "Redirection vers Stripe..." : "Traitement...";
 
-    // Simulate network latency for payment gateway response
+    const user = auth.currentUser;
+    const totalAmount = calculateTotal();
+
+    // Normalize items with exact unitPrice so Stripe & Firestore stay aligned
+    const normalizedItems = cart.map(item => ({
+        name: item.name || "Produit",
+        type: item.type || null,
+        quantity: parseInt(item.quantity, 10) || 1,
+        unitPrice: Number(getItemUnitPrice(item).toFixed(2))
+    }));
+
     if (selectedMethod === 'card') {
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+            const response = await fetch(`${RENDER_BACKEND_URL}/create-checkout-session`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user ? user.uid : "guest",
+                    customerName: name,
+                    customerEmail: email,
+                    deliveryAddress: address,
+                    deliveryPhone: phone,
+                    items: normalizedItems
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok || !data.url) {
+                throw new Error(data.error || "Impossible de créer la session Stripe.");
+            }
+
+            window.location.href = data.url;
+        } catch (error) {
+            console.error("Stripe checkout error:", error);
+            alert("Erreur lors de la redirection vers Stripe : " + error.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Payer par Carte via Stripe";
+        }
+        return;
     }
 
-    const totalAmount = calculateTotal();
-    const user = auth.currentUser;
-
+    // Cash order flow -> Firestore
     const newOrder = {
         userId: user ? user.uid : "guest",
         customerName: name,
         customerEmail: email,
         deliveryAddress: address,
         deliveryPhone: phone,
-        items: cart,
-        totalAmount: totalAmount,
-        paymentMethod: selectedMethod,
-        paymentStatus: selectedMethod === 'card' ? "Paid (Trial)" : "Pending (Cash)",
+        items: normalizedItems,
+        totalAmount: Number(totalAmount.toFixed(2)),
+        paymentMethod: "cash",
+        paymentStatus: "Pending (Cash)",
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
     };
 
     try {
         await db.collection("orders").add(newOrder);
-
-        if (selectedMethod === 'card') {
-            alert(`✅ Paiement d'essai réussi !\nMontant : ${totalAmount.toFixed(2)} €\nMerci pour votre commande, ${name}.`);
-        } else {
-            alert(`✅ Commande enregistrée !\nVous réglerez ${totalAmount.toFixed(2)} € à la livraison.`);
-        }
-
+        alert(`✅ Commande enregistrée !\nVous réglerez ${totalAmount.toFixed(2)} € à la livraison.`);
         localStorage.removeItem("jerix_cart");
         window.location.href = "index.html";
-
     } catch (error) {
-        console.error("Error saving order:", error);
+        console.error("Error saving cash order:", error);
         alert("Une erreur est survenue lors de l'enregistrement. Veuillez réessayer.");
         submitBtn.disabled = false;
-        submitBtn.textContent = selectedMethod === 'cash' ? "Valider la commande (Espèces)" : "Payer par Carte (Test Run)";
+        submitBtn.textContent = "Valider la commande (Espèces)";
     }
 }
     </script>

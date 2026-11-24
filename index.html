@@ -49,6 +49,18 @@
             <span class="ticker-item">Burgers <span class="ticker-block"></span></span>
             <span class="ticker-item">Sandwichs <span class="ticker-block"></span></span>
             <span class="ticker-item">Indien <span class="ticker-block"></span></span>
+            <span class="ticker-item">Jerix Fusion Bites <span class="ticker-block"></span></span>
+            <span class="ticker-item">Pizza <span class="ticker-block"></span></span>
+            <span class="ticker-item">Tacos <span class="ticker-block"></span></span>
+            <span class="ticker-item">Burgers <span class="ticker-block"></span></span>
+            <span class="ticker-item">Sandwichs <span class="ticker-block"></span></span>
+            <span class="ticker-item">Indien <span class="ticker-block"></span></span>
+            <span class="ticker-item">Jerix Fusion Bites <span class="ticker-block"></span></span>
+            <span class="ticker-item">Pizza <span class="ticker-block"></span></span>
+            <span class="ticker-item">Tacos <span class="ticker-block"></span></span>
+            <span class="ticker-item">Burgers <span class="ticker-block"></span></span>
+            <span class="ticker-item">Sandwichs <span class="ticker-block"></span></span>
+            <span class="ticker-item">Indien <span class="ticker-block"></span></span>
         </div>
     </div>
 </div>
@@ -94,7 +106,7 @@
             <div class="brochure-info-box">
                 <div class="info-row">
                     <strong>📍 Adresse :</strong> 
-                    <a href="https://maps.google.com/?q=11+PLACE+DES+BRUGNAUTS+92220+BAGNEUX" target="_blank" class="map-link">
+                    <a href="https://www.google.com/maps/place/JERIX/@48.7891416,2.3004145,19.42z/data=!4m6!3m5!1s0x47e6716cda6e3697:0x23008c41a8358ff2!8m2!3d48.7890221!4d2.3011929!16s%2Fg%2F11zb2yjr0w?entry=ttu&g_ep=EgoyMDI2MTExOC4xIKXMDSoASAFQAw%3D%3D" target="_blank" class="map-link">
                         11 Place des Brugnauts, 92220 Bagneux
                     </a>
                 </div>
@@ -263,6 +275,39 @@ let currentCategoryFilter = '';
 
 document.addEventListener("DOMContentLoaded", function() {
     console.log("DOM loaded successfully.");
+
+// ----------------------------------------------------
+    // 🖼️ GALLERY SLIDER CONTROLS (Pizza, Burger, Tacos, Sandwich, etc.)
+    // ----------------------------------------------------
+    const galleryContainer = document.getElementById('galleryContainer');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    if (galleryContainer && prevBtn && nextBtn) {
+        const items = galleryContainer.querySelectorAll('.gallery-item');
+        let currentIndex = 0;
+
+        function updateGallery() {
+            const itemWidth = items[0].offsetWidth;
+            galleryContainer.scrollTo({
+                left: currentIndex * itemWidth,
+                behavior: 'smooth'
+            });
+        }
+
+        nextBtn.addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % items.length;
+            updateGallery();
+        });
+
+        prevBtn.addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + items.length) % items.length;
+            updateGallery();
+        });
+
+        // Recalculate position if the window is resized
+        window.addEventListener('resize', updateGallery);
+    }
 
     // Toggle Floating Checkout Drawer
     const checkoutToggle = document.getElementById('checkoutBoxToggle');
