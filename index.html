@@ -33,6 +33,9 @@
     </nav>
 </header>
 
+<!-- Payment Status Banner (Transaction Successful / Unsuccessful) -->
+<div id="paymentStatusBanner" style="display: none; max-width: 720px; margin: 20px auto 0; padding: 16px 20px; border-radius: 8px; text-align: center; font-weight: bold;"></div>
+
 <!-- Top Ticker -->
 <div class="ticker-wrap">
     <div class="ticker">
@@ -273,8 +276,47 @@ let allProductsCache = [];
 let allCategoriesCache = [];
 let currentCategoryFilter = '';
 
+// Global Cart Initialization
+window.cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
+
+// ----------------------------------------------------
+// 💳 STRIPE RETURN STATUS BANNER LOGIC
+// ----------------------------------------------------
+function handlePaymentReturnStatus() {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get("payment");
+    const sessionId = params.get("session_id");
+    const banner = document.getElementById("paymentStatusBanner");
+
+    if (!banner || !paymentStatus) return;
+
+    banner.style.display = "block";
+
+    if (paymentStatus === "success") {
+        banner.style.background = "#142e1b";
+        banner.style.border = "1px solid #2ecc71";
+        banner.style.color = "#a6f3c1";
+        banner.innerHTML = `
+            Transaction successful — Your payment has been received${sessionId ? ` (Ref: ${sessionId.slice(-8)})` : ""}.
+        `;
+        window.cart = [];
+        localStorage.removeItem("jerix_cart");
+    } else if (paymentStatus === "cancel" || paymentStatus === "failed") {
+        banner.style.background = "#331414";
+        banner.style.border = "1px solid #e74c3c";
+        banner.style.color = "#ffb3ab";
+        banner.textContent = "Transaction unsuccessful — Your payment was not completed. Please try again.";
+    }
+
+    if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+    }
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     console.log("DOM loaded successfully.");
+    handlePaymentReturnStatus();
 
 // ----------------------------------------------------
     // 🖼️ GALLERY SLIDER CONTROLS (Pizza, Burger, Tacos, Sandwich, etc.)
@@ -444,9 +486,6 @@ function renderProductDisplay() {
     });
 }
 
-// Global Cart Initialization
-window.cart = JSON.parse(localStorage.getItem("jerix_cart")) || [];
-
 // 🎯 REAL ADD TO CART LOGIC
 window.addToCart = function(productName, productPrice) {
     console.log(`Adding to cart: ${productName} (${productPrice}€)`);
@@ -519,7 +558,6 @@ window.removeCartItem = function(index) {
     }
 };
 </script>
-
 
 </body>
 </html>
