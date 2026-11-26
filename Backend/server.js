@@ -129,7 +129,13 @@ app.post('/create-checkout-session', async (req, res) => {
       unitPrice: Number((parseFloat(i.unitPrice ?? i.price ?? 0) || 0).toFixed(2))
     }));
 
-    const baseFrontendUrl = allowedOrigins[0] || 'http://localhost:3000';
+    const requestOrigin = req.get('origin') || '';
+    const isLocalOrigin =
+      requestOrigin.startsWith('http://127.0.0.1') ||
+      requestOrigin.startsWith('http://localhost');
+    const checkoutReturnUrl = isLocalOrigin
+      ? requestOrigin
+      : 'https://jerixrestaurant-cmyk.github.io/Jerix';
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -144,8 +150,8 @@ app.post('/create-checkout-session', async (req, res) => {
         deliveryPhone: String(deliveryPhone || '').slice(0, 50),
         items: JSON.stringify(compactItems).slice(0, 490)
       },
-      success_url: `${baseFrontendUrl}/index.html?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseFrontendUrl}/payment.html?payment=cancelled`
+      success_url: `${checkoutReturnUrl}/index.html?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${checkoutReturnUrl}/index.html?payment=cancel`
     });
 
     res.json({ url: session.url });
